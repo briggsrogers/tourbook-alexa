@@ -21,7 +21,7 @@
         },
         "interactionModel": {
           "en-US": {
-            "eTag": "8db77b6b0716009f9959c7c66feba719"
+            "eTag": "8a177946c245d5d895ab682a62ac28af"
           }
         },
         "lambda": [
@@ -34,7 +34,7 @@
             "codeUri": "lambda/custom",
             "functionName": "ask-custom-tourbook-default",
             "handler": "index.handler",
-            "revisionId": "a1ac8d18-5faa-4d6f-8aa3-4c98bbb602db",
+            "revisionId": "360e050b-5c8c-4558-b7c4-1e4c68c8b631",
             "runtime": "nodejs8.10"
           }
         ]

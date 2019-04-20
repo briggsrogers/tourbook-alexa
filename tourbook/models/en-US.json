@@ -22,6 +22,17 @@
           "samples": [
             "open tourbook"
           ]
+        },
+        {
+          "name": "GetLocationIntent",
+          "slots": [],
+          "samples": [
+            "where's tomas", 
+            "where tomas is", 
+            "where is he", 
+            "location", 
+            "location update"
+          ]
         }
       ]
     }

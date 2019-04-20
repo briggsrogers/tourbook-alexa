@@ -3,6 +3,11 @@
 
 const Alexa = require('ask-sdk-core');
 
+const FEATURED_TOUR = '1ov5eg7w';
+
+const GMAPS_API_KEY = 'AIzaSyDQfyktHRYDFOjvororihtZSzybkrmn7ho';
+const GEOCODE_ENDPOINT = 'https://maps.googleapis.com/maps/api/geocode/json'
+
 const GetRemoteDataHandler = {
   canHandle(handlerInput) {
     return handlerInput.requestEnvelope.request.type === 'LaunchRequest'
@@ -12,23 +17,81 @@ const GetRemoteDataHandler = {
   async handle(handlerInput) {
     let outputSpeech = 'This is the default message.';
 
-    await getRemoteData('https://0pkswkftik.execute-api.us-east-1.amazonaws.com/dev/collections/1ov5eg7w')
+    await getRemoteData(`https://0pkswkftik.execute-api.us-east-1.amazonaws.com/dev/collections/${FEATURED_TOUR}`)
       .then((response) => {
         const data = JSON.parse(response);
 
-        console.log(data.tourname);
+        let tourname = data.tourname;
+        let firstname = data.stravaAuth.athlete.firstname;
+        let lastname = data.stravaAuth.athlete.lastname;
 
-        outputSpeech = data.tourname;
-
+        outputSpeech = `Welcome to the tourbook Alexa skill. Today's featured tour is ${tourname} by ${firstname}. You can ask, where is ${firstname}.`;
 
       })
       .catch((err) => {
         //set an optional error message here
-        //outputSpeech = err.message;
+        outputSpeech = err.message;
       });
 
     return handlerInput.responseBuilder
-      .speak(`The name of the tour is ${outputSpeech}`)
+      .speak(outputSpeech)
+      .reprompt(outputSpeech)
+      .getResponse();
+
+  },
+};
+
+const GetLocationHandler = {
+  canHandle(handlerInput) {
+    return (handlerInput.requestEnvelope.request.type === 'IntentRequest'
+      && handlerInput.requestEnvelope.request.intent.name === 'GetLocationIntent');
+  },
+  async handle(handlerInput) {
+
+    let lat_lng;
+    let totalDistance = 0;
+    let outputSpeech = 'I wasn\'t able to find the location';
+
+    await getRemoteData(`https://0pkswkftik.execute-api.us-east-1.amazonaws.com/dev/collections/${FEATURED_TOUR}`)
+      .then((response) => {
+        const data = JSON.parse(response);
+
+        //Get Last Location
+        if(data.stravaCache){
+          lat_lng = data.stravaCache[data.stravaCache.length - 1].end_latlng;
+
+          //Calc total distance
+          data.stravaCache.forEach( (item, i) => {
+            totalDistance += item.distance;
+          });
+
+          totalDistance = Math.round((totalDistance * 0.000621371)); //Convert to miles
+        }
+
+      })
+      .catch((err) => {
+        //set an optional error message here
+        outputSpeech = err.message;
+      });
+
+    //Get Geo Data
+    await getRemoteData(`${GEOCODE_ENDPOINT}?latlng=${lat_lng[0]},${lat_lng[1]}&key=${GMAPS_API_KEY}&result_type=political`)
+      .then((response) => {
+        const geodata = JSON.parse(response);
+        
+        let location = geodata.results[0].formatted_address;
+        outputSpeech = `Tomás last made camp at ${location}. He has traveled ${totalDistance} miles.`;
+
+        console.log(outputSpeech);
+
+      })
+      .catch((err) => {
+        //set an optional error message here
+        outputSpeech = err.message;
+      });
+
+    return handlerInput.responseBuilder
+      .speak(outputSpeech)
       .getResponse();
 
   },
@@ -109,6 +172,7 @@ const skillBuilder = Alexa.SkillBuilders.custom();
 exports.handler = skillBuilder
   .addRequestHandlers(
     GetRemoteDataHandler,
+    GetLocationHandler,
     HelpIntentHandler,
     CancelAndStopIntentHandler,
     SessionEndedRequestHandler
