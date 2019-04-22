@@ -3,7 +3,7 @@
 
 const Alexa = require('ask-sdk-core');
 
-const FEATURED_TOUR = '1ov5eg7w';
+const FEATURED_TOUR = 'xxzvqal1';
 
 const GMAPS_API_KEY = 'AIzaSyDQfyktHRYDFOjvororihtZSzybkrmn7ho';
 const GEOCODE_ENDPOINT = 'https://maps.googleapis.com/maps/api/geocode/json'
@@ -21,11 +21,13 @@ const GetRemoteDataHandler = {
       .then((response) => {
         const data = JSON.parse(response);
 
+        console.log(timeSince)
+
         let tourname = data.tourname;
         let firstname = data.stravaAuth.athlete.firstname;
         let lastname = data.stravaAuth.athlete.lastname;
 
-        outputSpeech = `Welcome to the tourbook Alexa skill. Today's featured tour is ${tourname} by ${firstname}. You can ask, where is ${firstname}.`;
+        outputSpeech = `Welcome to the tourbook Alexa skill. Today's featured tour is ${tourname} by ${firstname}. You can ask, where are they?`;
 
       })
       .catch((err) => {
@@ -49,7 +51,12 @@ const GetLocationHandler = {
   async handle(handlerInput) {
 
     let lat_lng;
+    let firstname;
     let totalDistance = 0;
+    let startTime;
+    let tourStartDate;
+    let timeSinceActivityString;
+    let timeSinceTourStartString;
     let outputSpeech = 'I wasn\'t able to find the location';
 
     await getRemoteData(`https://0pkswkftik.execute-api.us-east-1.amazonaws.com/dev/collections/${FEATURED_TOUR}`)
@@ -58,7 +65,15 @@ const GetLocationHandler = {
 
         //Get Last Location
         if(data.stravaCache){
-          lat_lng = data.stravaCache[data.stravaCache.length - 1].end_latlng;
+
+          let lastActivity = data.stravaCache[data.stravaCache.length - 1];
+          let firstActivity = data.stravaCache[0];
+          firstname = data.stravaAuth.athlete.firstname;
+          lat_lng = lastActivity.end_latlng;
+          startTime = new Date(lastActivity.start_date);
+          tourStartDate = new Date(firstActivity.start_date);
+          timeSinceActivityString = timeSince(startTime);
+          timeSinceTourStartString = timeSince( tourStartDate );
 
           //Calc total distance
           data.stravaCache.forEach( (item, i) => {
@@ -80,9 +95,7 @@ const GetLocationHandler = {
         const geodata = JSON.parse(response);
         
         let location = geodata.results[0].formatted_address;
-        outputSpeech = `Tomás last made camp at ${location}. He has traveled ${totalDistance} miles.`;
-
-        console.log(outputSpeech);
+        outputSpeech = `${firstname} last made camp at ${location}, ${timeSinceActivityString} ago. They have traveled ${totalDistance} miles since the tour began ${timeSinceTourStartString} ago.`;
 
       })
       .catch((err) => {
@@ -152,6 +165,20 @@ const ErrorHandler = {
   },
 };
 
+const skillBuilder = Alexa.SkillBuilders.custom();
+
+exports.handler = skillBuilder
+  .addRequestHandlers(
+    GetRemoteDataHandler,
+    GetLocationHandler,
+    HelpIntentHandler,
+    CancelAndStopIntentHandler,
+    SessionEndedRequestHandler
+  )
+  .addErrorHandlers(ErrorHandler)
+  .lambda();
+
+// HTTP Request 
 const getRemoteData = function (url) {
   return new Promise((resolve, reject) => {
     const client = url.startsWith('https') ? require('https') : require('http');
@@ -167,16 +194,31 @@ const getRemoteData = function (url) {
   })
 };
 
-const skillBuilder = Alexa.SkillBuilders.custom();
+// TimeSince
+const timeSince = ( date ) => {
+  // doesn't change or get reassigned, so use const
+  const seconds = Math.floor( ( new Date() - date ) / 1000 );
+  // block level var that changes based on conditions, use let
+  let interval = Math.floor( seconds / 31536000 );
 
-exports.handler = skillBuilder
-  .addRequestHandlers(
-    GetRemoteDataHandler,
-    GetLocationHandler,
-    HelpIntentHandler,
-    CancelAndStopIntentHandler,
-    SessionEndedRequestHandler
-  )
-  .addErrorHandlers(ErrorHandler)
-  .lambda();
-
+  if (interval > 1) {
+    return `${interval} years`; // you can use string/template literals to make string concat cleaner and easier
+  }
+  interval = Math.floor( seconds / 2592000 );
+  if (interval > 1) {
+    return interval + " months";
+  }
+  interval = Math.floor( seconds / 86400 );
+  if (interval > 1) {
+    return interval + " days";
+  }
+  interval = Math.floor( seconds / 3600 );
+  if (interval > 1) {
+    return interval + " hours";
+  }
+  interval = Math.floor( seconds / 60 );
+  if (interval > 1) {
+    return interval + " minutes";
+  }
+  return Math.floor(seconds) + " seconds";
+}

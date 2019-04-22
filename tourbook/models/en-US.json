@@ -27,9 +27,11 @@
           "name": "GetLocationIntent",
           "slots": [],
           "samples": [
-            "where's tomas", 
-            "where tomas is", 
+            "where are they", 
+            "what's his location", 
+            "what's her location",
             "where is he", 
+            "where is she", 
             "location", 
             "location update"
           ]
