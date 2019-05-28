@@ -3,7 +3,7 @@
 
 const Alexa = require('ask-sdk-core');
 
-const FEATURED_TOUR = 'xxzvqal1';
+const FEATURED_TOUR = '4g8adna0';
 
 const GMAPS_API_KEY = 'AIzaSyDQfyktHRYDFOjvororihtZSzybkrmn7ho';
 const GEOCODE_ENDPOINT = 'https://maps.googleapis.com/maps/api/geocode/json'
@@ -50,6 +50,7 @@ const GetLocationHandler = {
   },
   async handle(handlerInput) {
 
+    let tourHasStarted;
     let lat_lng;
     let firstname;
     let totalDistance = 0;
@@ -63,8 +64,12 @@ const GetLocationHandler = {
       .then((response) => {
         const data = JSON.parse(response);
 
+        console.log('Strava cache', data.stravaCache);
+
         //Get Last Location
-        if(data.stravaCache){
+        if( typeof data.stravaCache[0] !== 'undefined' ){
+
+          console.log('Have cache');
 
           let lastActivity = data.stravaCache[data.stravaCache.length - 1];
           let firstActivity = data.stravaCache[0];
@@ -82,15 +87,26 @@ const GetLocationHandler = {
 
           totalDistance = Math.round((totalDistance * 0.000621371)); //Convert to miles
         }
+        else{
+          console.log('No cache');
+          tourHasStarted = ( new Date() > new Date(data.startdate.replace(/-/g, "/")) ) ? true : false;
+
+          if(!tourHasStarted){
+            outputSpeech = `This tour has not started yet. Please check back soon. You can explore other tours at www.tourbook.cc/explore`;
+          }
+        }
 
       })
       .catch((err) => {
+        console.log('Catch error', err);
         //set an optional error message here
         outputSpeech = err.message;
       });
 
-    //Get Geo Data
-    await getRemoteData(`${GEOCODE_ENDPOINT}?latlng=${lat_lng[0]},${lat_lng[1]}&key=${GMAPS_API_KEY}&result_type=political`)
+    if(tourHasStarted && data.stravaCache){
+
+      //Get Geo Data
+      await getRemoteData(`${GEOCODE_ENDPOINT}?latlng=${lat_lng[0]},${lat_lng[1]}&key=${GMAPS_API_KEY}&result_type=political`)
       .then((response) => {
         const geodata = JSON.parse(response);
         
@@ -102,6 +118,8 @@ const GetLocationHandler = {
         //set an optional error message here
         outputSpeech = err.message;
       });
+
+    }
 
     return handlerInput.responseBuilder
       .speak(outputSpeech)
